@@ -43,7 +43,11 @@ class XiaoHongShuCrawler(AbstractCrawler):
     def __init__(self) -> None:
         self.index_url = "https://www.xiaohongshu.com"
         # self.user_agent = utils.get_user_agent()
-        self.user_agent = config.UA if config.UA else "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        self.user_agent = (
+            config.UA
+            if config.UA
+            else "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        )
 
     async def start(self) -> None:
         playwright_proxy_format, httpx_proxy_format = None, None
@@ -293,10 +297,10 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 crawl_interval = random.uniform(1, config.CRAWLER_MAX_SLEEP_SEC)
             try:
                 # 尝试直接获取网页版笔记详情，携带cookie
-                note_detail_from_html: Optional[Dict] = (
-                    await self.xhs_client.get_note_by_id_from_html(
-                        note_id, xsec_source, xsec_token, enable_cookie=True
-                    )
+                note_detail_from_html: Optional[
+                    Dict
+                ] = await self.xhs_client.get_note_by_id_from_html(
+                    note_id, xsec_source, xsec_token, enable_cookie=True
                 )
                 time.sleep(crawl_interval)
                 if not note_detail_from_html:
@@ -311,10 +315,10 @@ class XiaoHongShuCrawler(AbstractCrawler):
                     )
                 if not note_detail_from_html:
                     # 如果网页版笔记详情获取失败，则尝试API获取
-                    note_detail_from_api: Optional[Dict] = (
-                        await self.xhs_client.get_note_by_id(
-                            note_id, xsec_source, xsec_token
-                        )
+                    note_detail_from_api: Optional[
+                        Dict
+                    ] = await self.xhs_client.get_note_by_id(
+                        note_id, xsec_source, xsec_token
                     )
                 note_detail = note_detail_from_html or note_detail_from_api
                 if note_detail:
@@ -375,9 +379,29 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 note_id=note_id,
                 xsec_token=xsec_token,
                 crawl_interval=crawl_interval,
-                callback=xhs_store.batch_update_xhs_note_comments,
+                callback=self.batch_update_xhs_note_comments,
                 max_count=CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES,
             )
+
+    async def batch_update_xhs_note_comments(self, note_id: str, comments: List[Dict]):
+        """
+        批量更新小红书笔记评论
+        Args:
+            note_id:
+            comments:
+
+        Returns:
+
+        """
+        if not comments:
+            return
+        for comment_item in comments:
+            userinfo: Dict = await self.xhs_client.get_creator_info(
+                user_id=comment_item.get("user_info").get("user_id")
+            )
+
+            comment_item["user_info"]["red_id"] = userinfo.get("basicInfo").get("redId")
+            await xhs_store.update_xhs_note_comment(note_id, comment_item)
 
     @staticmethod
     def format_proxy_info(
