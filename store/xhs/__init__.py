@@ -195,6 +195,14 @@ async def save_creator(user_id: str, creator: Dict):
         elif i.get("type") == "interaction":
             interaction = i.get("count")
 
+    def get_gender(gender):
+        if gender == 1:
+            return "女"
+        elif gender == 0:
+            return "男"
+        else:
+            return None
+
     local_db_item = {
         "user_id": user_id,
         "red_id": user_info.get("red_id"),
